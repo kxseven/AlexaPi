@@ -11,6 +11,8 @@ from creds import *
 import requests
 import json
 import re
+import sys
+from select import select
 from memcache import Client
 
 #Settings
@@ -54,7 +56,6 @@ def gettoken():
 		
 
 def alexa():
-	GPIO.output(lights[0], GPIO.HIGH)
 	url = 'https://access-alexa-na.amazon.com/v1/avs/speechrecognizer/recognize'
 	headers = {'Authorization' : 'Bearer %s' % gettoken()}
 	d = {
@@ -93,37 +94,33 @@ def alexa():
 				audio = d.split('\r\n\r\n')[1].rstrip('--')
 		with open(path+"response.mp3", 'wb') as f:
 			f.write(audio)
-		GPIO.output(lights[1], GPIO.LOW)
 
 		os.system('mpg123 -q {}1sec.mp3 {}response.mp3 {}1sec.mp3'.format(path, path, path))
-		GPIO.output(lights[0], GPIO.LOW)
 	else:
-		GPIO.output(lights[1], GPIO.LOW)
 		for x in range(0, 3):
 			time.sleep(.2)
-			GPIO.output(lights[1], GPIO.HIGH)
-			time.sleep(.2)
-			GPIO.output(lights[1], GPIO.LOW)
+
 		
 
 
 
 def start():
-	last = GPIO.input(button)
+	timeout = 0.5
 	while True:
-		val = GPIO.input(button)
-		GPIO.wait_for_edge(button, GPIO.FALLING) # we wait for the button to be pressed
-		GPIO.output(lights[1], GPIO.HIGH)
+		raw_input("Press Enter to start using Alexa")
 		inp = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NORMAL, device)
 		inp.setchannels(1)
 		inp.setrate(16000)
 		inp.setformat(alsaaudio.PCM_FORMAT_S16_LE)
 		inp.setperiodsize(500)
 		audio = ""
-		while(GPIO.input(button)==0): # we keep recording while the button is pressed
+		print "Hit any key to stop recording"
+		rlist, _, _ = select([sys.stdin], [], [], timeout)
+		while (not rlist): # we keep recording while the button is pressed
 			l, data = inp.read()
 			if l:
 				audio += data
+			rlist, _, _ = select([sys.stdin], [], [], timeout)
 		rf = open(path+'recording.wav', 'w')
 		rf.write(audio)
 		rf.close()
@@ -133,19 +130,8 @@ def start():
 	
 
 if __name__ == "__main__":
-	GPIO.setwarnings(False)
-	GPIO.cleanup()
-	GPIO.setmode(GPIO.BCM)
-	GPIO.setup(button, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-	GPIO.setup(lights, GPIO.OUT)
-	GPIO.output(lights, GPIO.LOW)
 	while internet_on() == False:
 		print "."
 	token = gettoken()
 	os.system('mpg123 -q {}1sec.mp3 {}hello.mp3'.format(path, path))
-	for x in range(0, 3):
-		time.sleep(.1)
-		GPIO.output(lights[0], GPIO.HIGH)
-		time.sleep(.1)
-		GPIO.output(lights[0], GPIO.LOW)
 	start()
