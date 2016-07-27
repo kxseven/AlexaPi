@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 apt-get update
 apt-get install  libasound2-dev memcached python-pip mpg123 python-alsaaudio
